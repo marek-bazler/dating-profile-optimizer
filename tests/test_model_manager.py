@@ -239,7 +239,12 @@ class TestModelManager(unittest.TestCase):
         mock_model = MagicMock()
         mock_sentiment_pipeline = MagicMock()
         
-        mock_processor.return_value = {"pixel_values": torch.tensor([1, 2, 3])}
+        # Mock processor to return proper tensor format
+        mock_inputs = MagicMock()
+        mock_inputs.__getitem__ = MagicMock(return_value=torch.tensor([1, 2, 3]))
+        mock_inputs.to = MagicMock(return_value=mock_inputs)  # Mock the .to() method
+        mock_processor.return_value = mock_inputs
+        
         mock_model.generate.return_value = torch.tensor([[1, 2, 3]])
         mock_processor.decode.return_value = "A person smiling"
         mock_sentiment_pipeline.return_value = [{'label': 'POSITIVE', 'score': 0.8}]

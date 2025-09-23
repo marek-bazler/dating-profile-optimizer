@@ -69,7 +69,7 @@ class TestModelLoader(unittest.TestCase):
         # Check UI updates
         self.assertIn("successfully", loader.status_label.cget("text"))
         self.assertEqual(loader.progress_var.get(), 100)
-        self.assertEqual(loader.load_button.cget("state"), "disabled")
+        self.assertEqual(str(loader.load_button.cget("state")), "disabled")
         
         # Check success message shown
         mock_showinfo.assert_called_once()
@@ -84,7 +84,7 @@ class TestModelLoader(unittest.TestCase):
         # Check UI updates
         self.assertIn("Error", loader.status_label.cget("text"))
         self.assertEqual(loader.progress_var.get(), 0)
-        self.assertEqual(loader.load_button.cget("state"), "normal")
+        self.assertEqual(str(loader.load_button.cget("state")), "normal")
         
         # Check error message shown
         mock_showerror.assert_called_once()
@@ -285,7 +285,9 @@ class TestPhotoSelectorMethods(unittest.TestCase):
              patch('src.gui.photo_selector.ttk.Button'), \
              patch('src.gui.photo_selector.ttk.Progressbar'), \
              patch('src.gui.photo_selector.tk.Canvas'), \
-             patch('src.gui.photo_selector.ttk.Scrollbar'):
+             patch('src.gui.photo_selector.ttk.Scrollbar'), \
+             patch('src.gui.photo_selector.tk.StringVar'), \
+             patch('src.gui.photo_selector.tk.DoubleVar'):
             
             selector = PhotoSelector(mock_parent, mock_model_manager, mock_logger)
             

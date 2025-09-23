@@ -66,7 +66,13 @@ class TestLogger(unittest.TestCase):
                     mock_file_handler.return_value = mock_file_instance
                     mock_stream_handler.return_value = mock_stream_instance
                     
-                    logger = setup_logger()
+                    # Mock the level attribute for handlers
+                    mock_file_instance.level = logging.DEBUG
+                    mock_stream_instance.level = logging.INFO
+                    
+                    # Mock the logger.info call to avoid actual logging during test
+                    with patch.object(logging.Logger, 'info'):
+                        logger = setup_logger()
                     
                     # Verify file handler setup
                     mock_file_handler.assert_called_once()
