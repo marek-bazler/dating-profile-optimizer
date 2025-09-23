@@ -5,6 +5,7 @@ Main GUI window for the Dating Profile Optimizer
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
 import threading
+import logging
 from pathlib import Path
 from typing import List, Dict, Any
 import json
@@ -156,7 +157,6 @@ First, load the AI models (this may take a few minutes):"""
                     self.text_widget.see(tk.END)
                 self.text_widget.after(0, append)
         
-        import logging
         gui_handler = GUILogHandler(self.log_text)
         gui_handler.setLevel(logging.INFO)
         formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
