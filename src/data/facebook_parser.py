@@ -49,12 +49,19 @@ class FacebookDataParser:
         """Parse Facebook ZIP export"""
         self.logger.info(f"Parsing Facebook ZIP export: {zip_path}")
         
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_path = Path(temp_dir)
-            
-            # Extract ZIP file
+        # Create a permanent extraction directory
+        extract_dir = Path("temp_facebook_data")
+        extract_dir.mkdir(exist_ok=True)
+        
+        # Clean up any existing extraction
+        if extract_dir.exists():
+            shutil.rmtree(extract_dir)
+        extract_dir.mkdir()
+        
+        try:
+            # Extract ZIP file to permanent location
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.extractall(temp_path)
+                zip_ref.extractall(extract_dir)
             
             # Find and parse relevant JSON files
             parsed_data = {
@@ -64,29 +71,41 @@ class FacebookDataParser:
                 'about_info': {},
                 'friends': [],
                 'interests': [],
-                'work_education': []
+                'work_education': [],
+                'extraction_path': str(extract_dir)  # Store extraction path
             }
             
-            # Look for common Facebook export files
-            json_files = list(temp_path.rglob('*.json'))
+            # Look for Facebook export files in the new structure
+            json_files = list(extract_dir.rglob('*.json'))
             
             for json_file in json_files:
                 file_name = json_file.name.lower()
+                relative_path = str(json_file.relative_to(extract_dir)).lower()
                 
-                if 'profile_information' in file_name or 'about_you' in file_name:
-                    parsed_data['profile_info'].update(self._parse_profile_info(json_file))
-                elif 'photos_and_videos' in file_name or 'your_photos' in file_name:
-                    parsed_data['photos'].extend(self._parse_photos(json_file, temp_path))
-                elif 'posts' in file_name or 'timeline' in file_name:
-                    parsed_data['posts'].extend(self._parse_posts(json_file))
-                elif 'friends' in file_name:
-                    parsed_data['friends'].extend(self._parse_friends(json_file))
-                elif 'pages' in file_name or 'likes' in file_name:
-                    parsed_data['interests'].extend(self._parse_interests(json_file))
-                elif 'work_and_education' in file_name:
-                    parsed_data['work_education'].extend(self._parse_work_education(json_file))
+                # Parse posts for profile information (do this first to extract name)
+                if 'your_posts__check_ins__photos' in file_name:
+                    parsed_data['posts'].extend(self._parse_new_posts(json_file))
+                
+                # Parse photos from various sources
+                if ('your_uncategorized_photos' in file_name or 
+                    'album' in relative_path):
+                    parsed_data['photos'].extend(self._parse_new_photos(json_file, extract_dir))
+                
+                # Parse interests from liked pages
+                elif 'pages_you\'ve_liked' in file_name or 'pages_you_have_liked' in file_name:
+                    parsed_data['interests'].extend(self._parse_new_interests(json_file))
+                
+                # Parse other data sources
+                elif 'comments' in file_name:
+                    parsed_data['posts'].extend(self._parse_comments_for_profile(json_file))
             
             return parsed_data
+            
+        except Exception as e:
+            # Clean up on error
+            if extract_dir.exists():
+                shutil.rmtree(extract_dir, ignore_errors=True)
+            raise
     
     def _parse_json_export(self, json_path: Path) -> Dict[str, Any]:
         """Parse single Facebook JSON export file"""
@@ -327,10 +346,29 @@ class FacebookDataParser:
         if photo_path.exists():
             return str(photo_path)
         
-        # Try to find the file by name
-        filename = Path(uri).name
-        for photo_file in base_path.rglob(filename):
-            return str(photo_file)
+        # Try alternative path structures
+        # Remove leading path components that might not match
+        if '/' in uri:
+            # Try with just the filename
+            filename = Path(uri).name
+            for photo_file in base_path.rglob(filename):
+                return str(photo_file)
+            
+            # Try with the last few path components
+            path_parts = Path(uri).parts
+            if len(path_parts) > 1:
+                # Try last 2 components
+                relative_path = Path(*path_parts[-2:])
+                photo_path = base_path / relative_path
+                if photo_path.exists():
+                    return str(photo_path)
+                
+                # Try last 3 components
+                if len(path_parts) > 2:
+                    relative_path = Path(*path_parts[-3:])
+                    photo_path = base_path / relative_path
+                    if photo_path.exists():
+                        return str(photo_path)
         
         return None
     
@@ -445,6 +483,119 @@ class FacebookDataParser:
                     })
         return work_education
     
+    def _parse_new_photos(self, json_file: Path, base_path: Path) -> List[Dict[str, Any]]:
+        """Parse photos from the new Facebook export format"""
+        try:
+            with open(json_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            photos = []
+            
+            # Handle uncategorized photos
+            if 'other_photos_v2' in data:
+                for photo_data in data['other_photos_v2']:
+                    photo_info = {
+                        'title': 'Uncategorized Photo',
+                        'description': '',
+                        'creation_timestamp': self._parse_timestamp(photo_data.get('creation_timestamp')),
+                        'uri': photo_data.get('uri', ''),
+                        'media_metadata': photo_data.get('media_metadata', {}),
+                        'comments': [],
+                        'reactions': [],
+                        'local_path': self._find_photo_file(photo_data.get('uri', ''), base_path)
+                    }
+                    photos.append(photo_info)
+            
+            # Handle album photos
+            if 'photos' in data:
+                album_name = data.get('name', 'Unknown Album')
+                for photo_data in data['photos']:
+                    photo_info = {
+                        'title': photo_data.get('title', album_name),
+                        'description': photo_data.get('description', ''),
+                        'creation_timestamp': self._parse_timestamp(photo_data.get('creation_timestamp')),
+                        'uri': photo_data.get('uri', ''),
+                        'media_metadata': photo_data.get('media_metadata', {}),
+                        'comments': [],
+                        'reactions': [],
+                        'local_path': self._find_photo_file(photo_data.get('uri', ''), base_path)
+                    }
+                    photos.append(photo_info)
+            
+            return photos
+            
+        except Exception as e:
+            self.logger.error(f"Error parsing new photos from {json_file}: {str(e)}")
+            return []
+    
+    def _parse_new_posts(self, json_file: Path) -> List[Dict[str, Any]]:
+        """Parse posts from the new Facebook export format"""
+        try:
+            with open(json_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            posts = []
+            
+            if isinstance(data, list):
+                for post_data in data:
+                    if isinstance(post_data, dict):
+                        post_info = {
+                            'timestamp': self._parse_timestamp(post_data.get('timestamp')),
+                            'title': post_data.get('title', ''),
+                            'data': post_data.get('data', []),
+                            'attachments': post_data.get('attachments', [])
+                        }
+                        posts.append(post_info)
+            
+            return posts
+            
+        except Exception as e:
+            self.logger.error(f"Error parsing new posts from {json_file}: {str(e)}")
+            return []
+    
+    def _parse_new_interests(self, json_file: Path) -> List[Dict[str, Any]]:
+        """Parse interests from the new Facebook export format"""
+        try:
+            with open(json_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            interests = []
+            
+            # Parse liked pages
+            if 'page_likes_v2' in data:
+                for like_data in data['page_likes_v2']:
+                    name = like_data.get('name', '')
+                    # Fix common encoding issues
+                    name = name.replace('Ã½', 'ý').replace('Ã¡', 'á').replace('Ã©', 'é').replace('Ã­', 'í').replace('Ã³', 'ó').replace('Ãº', 'ú')
+                    
+                    interest_info = {
+                        'name': name,
+                        'category': 'Page',  # Default category for new format
+                        'timestamp': self._parse_timestamp(like_data.get('timestamp')),
+                        'url': like_data.get('url', '')
+                    }
+                    interests.append(interest_info)
+            
+            return interests
+            
+        except Exception as e:
+            self.logger.error(f"Error parsing new interests from {json_file}: {str(e)}")
+            return []
+    
+    def _parse_comments_for_profile(self, json_file: Path) -> List[Dict[str, Any]]:
+        """Parse comments to extract personality insights"""
+        try:
+            with open(json_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            # This could be used for personality analysis in the future
+            # For now, just return empty list
+            return []
+            
+        except Exception as e:
+            self.logger.error(f"Error parsing comments from {json_file}: {str(e)}")
+            return []
+    
     def extract_dating_profile_data(self, facebook_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Extract and format data suitable for dating profile generation
@@ -459,8 +610,24 @@ class FacebookDataParser:
         work_education = facebook_data.get('work_education', [])
         interests = facebook_data.get('interests', [])
         photos = facebook_data.get('photos', [])
+        posts = facebook_data.get('posts', [])
         
-        # Calculate age from birthday
+        # Try to extract name from posts if not in profile
+        name = profile_info.get('name', '')
+        if not name and posts:
+            # Look for name in post titles
+            for post in posts:
+                title = post.get('title', '')
+                if 'shared' in title or 'posted' in title:
+                    # Extract name from "Name shared a link" or similar
+                    parts = title.split(' ')
+                    if len(parts) >= 2:
+                        potential_name = ' '.join(parts[:2])  # Take first two words as name
+                        if potential_name and not any(word in potential_name.lower() for word in ['shared', 'posted', 'updated']):
+                            name = potential_name
+                            break
+        
+        # Calculate age from birthday if available
         age = None
         if profile_info.get('birthday'):
             try:
@@ -484,24 +651,40 @@ class FacebookDataParser:
                 break
         
         # Extract top interests
-        top_interests = [interest.get('name', '') for interest in interests[:10] if interest.get('name')]
+        top_interests = [interest.get('name', '') for interest in interests[:15] if interest.get('name')]
         
         # Filter photos with local paths (available for analysis)
-        available_photos = [photo for photo in photos if photo.get('local_path')]
+        available_photos = [photo for photo in photos if photo.get('local_path') and Path(photo['local_path']).exists()]
+        
+        # Sort photos by creation timestamp (newest first)
+        available_photos.sort(key=lambda x: x.get('creation_timestamp', ''), reverse=True)
+        
+        # Generate a basic bio from available data
+        bio_parts = []
+        if top_interests:
+            bio_parts.append(f"Interested in {', '.join(top_interests[:5])}")
+        
+        # Extract location from photo metadata if available
+        location = profile_info.get('location', '')
+        if not location and available_photos:
+            # Could potentially extract location from photo EXIF data in the future
+            pass
         
         dating_profile_data = {
             'age': age,
-            'name': profile_info.get('name', ''),
+            'name': name,
             'occupation': current_job or 'Not specified',
             'education': education or 'Not specified',
-            'location': profile_info.get('location', ''),
+            'location': location or 'Not specified',
             'hometown': profile_info.get('hometown', ''),
-            'bio': profile_info.get('bio', ''),
+            'bio': profile_info.get('bio', '') or '. '.join(bio_parts),
             'interests': ', '.join(top_interests),
             'relationship_status': profile_info.get('relationship_status', ''),
             'photos': available_photos,
             'total_photos_found': len(photos),
-            'available_photos_count': len(available_photos)
+            'available_photos_count': len(available_photos),
+            'posts_analyzed': len(posts),
+            'interests_found': len(interests)
         }
         
         return dating_profile_data

@@ -40,19 +40,23 @@ class TestFacebookDataParser(unittest.TestCase):
         }
         
         self.sample_photos_data = {
-            "photos_v2": [
+            "other_photos_v2": [
                 {
-                    "title": "Profile Picture",
-                    "description": "My latest profile photo",
+                    "uri": "your_facebook_activity/posts/media/your_posts/profile.jpg",
                     "creation_timestamp": 1640995200,  # 2022-01-01
-                    "uri": "photos/profile.jpg",
-                    "media_metadata": {"photo_metadata": {"taken_timestamp": 1640995200}},
-                    "comments": [
-                        {"author": "Jane Smith", "comment": "Great photo!", "timestamp": 1640995300}
-                    ],
-                    "reactions": [
-                        {"reaction": "LIKE", "actor": "Jane Smith"}
-                    ]
+                    "media_metadata": {"photo_metadata": {"taken_timestamp": 1640995200}}
+                }
+            ]
+        }
+        
+        self.sample_album_data = {
+            "name": "Mobile uploads",
+            "photos": [
+                {
+                    "title": "Mobile uploads",
+                    "uri": "your_facebook_activity/posts/media/Mobileuploads/photo1.jpg",
+                    "creation_timestamp": 1640995200,
+                    "media_metadata": {"photo_metadata": {"taken_timestamp": 1640995200}}
                 }
             ]
         }
@@ -108,29 +112,29 @@ class TestFacebookDataParser(unittest.TestCase):
         self.assertEqual(result['website'], 'https://johndoe.com')
         self.assertEqual(result['email'], 'john@example.com')
     
-    def test_parse_photos(self):
-        """Test parsing photos data"""
+    def test_parse_new_photos(self):
+        """Test parsing photos data in new format"""
         # Create test JSON file
-        test_file = Path(self.test_dir) / "photos.json"
+        test_file = Path(self.test_dir) / "your_uncategorized_photos.json"
         with open(test_file, 'w', encoding='utf-8') as f:
             json.dump(self.sample_photos_data, f)
         
-        # Create fake photo file
-        photo_dir = Path(self.test_dir) / "photos"
-        photo_dir.mkdir()
+        # Create fake photo file structure
+        photo_dir = Path(self.test_dir) / "your_facebook_activity" / "posts" / "media" / "your_posts"
+        photo_dir.mkdir(parents=True)
         photo_file = photo_dir / "profile.jpg"
         photo_file.write_text("fake image data")
         
-        result = self.parser._parse_photos(test_file, Path(self.test_dir))
+        result = self.parser._parse_new_photos(test_file, Path(self.test_dir))
         
         self.assertEqual(len(result), 1)
         photo = result[0]
-        self.assertEqual(photo['title'], 'Profile Picture')
-        self.assertEqual(photo['description'], 'My latest profile photo')
-        self.assertEqual(photo['uri'], 'photos/profile.jpg')
+        self.assertEqual(photo['title'], 'Uncategorized Photo')
+        self.assertEqual(photo['description'], '')
+        self.assertEqual(photo['uri'], 'your_facebook_activity/posts/media/your_posts/profile.jpg')
         self.assertIsNotNone(photo['local_path'])
-        self.assertEqual(len(photo['comments']), 1)
-        self.assertEqual(len(photo['reactions']), 1)
+        self.assertEqual(len(photo['comments']), 0)
+        self.assertEqual(len(photo['reactions']), 0)
     
     def test_parse_interests(self):
         """Test parsing interests data"""

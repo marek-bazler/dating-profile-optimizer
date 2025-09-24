@@ -217,8 +217,19 @@ How to get your Facebook data:
         profile_info.append(f"Education: {self.dating_profile_data.get('education', 'Not found')}")
         profile_info.append(f"Relationship Status: {self.dating_profile_data.get('relationship_status', 'Not found')}")
         
+        # Add statistics about data found
+        profile_info.append(f"\n=== DATA STATISTICS ===")
+        profile_info.append(f"Posts analyzed: {self.dating_profile_data.get('posts_analyzed', 0)}")
+        profile_info.append(f"Interests found: {self.dating_profile_data.get('interests_found', 0)}")
+        
         if self.dating_profile_data.get('bio'):
             profile_info.append(f"\nBio: {self.dating_profile_data['bio']}")
+        
+        # Add note about Facebook export limitations
+        profile_info.append(f"\n=== NOTE ===")
+        profile_info.append("Facebook exports may not include all profile information.")
+        profile_info.append("The app extracts what's available from your export file.")
+        profile_info.append("You can manually add missing information in the Profile Info tab.")
         
         self.profile_text.delete(1.0, tk.END)
         self.profile_text.insert(1.0, "\n".join(profile_info))

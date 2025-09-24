@@ -219,3 +219,6 @@ logs/*
 # Exclude exports but keep directory  
 exports/*
 !exports/.gitkeep
+
+# Facebook data extraction directory
+temp_facebook_data/
