@@ -4,9 +4,11 @@ A comprehensive desktop application that uses local AI models to optimize your d
 
 ## Features
 
+- **Facebook Data Import**: Import your Facebook data export to auto-populate profile information and photos
 - **Photo Analysis**: AI-powered analysis of your photos to determine attractiveness scores
 - **Smart Photo Selection**: Automatically selects your top 5 photos for dating apps
 - **Profile Description Generation**: Creates engaging, personalized dating profile descriptions
+- **Auto-Population**: Automatically extract age, occupation, interests, and bio from Facebook data
 - **Local AI Processing**: All processing happens locally for complete privacy
 - **Comprehensive Logging**: Detailed logs for troubleshooting and monitoring
 - **User-Friendly GUI**: Easy-to-use interface with step-by-step workflow
@@ -171,21 +173,30 @@ make run
 - Click "Load AI Models" (this may take a few minutes on first run)
 - Wait for all models to download and load (~2-3 GB total)
 
-#### Step 2: Upload and Analyze Photos
+#### Step 2: Import Facebook Data (Optional but Recommended)
+- Go to the "Facebook Import" tab
+- Follow the instructions to download your Facebook data export
+- Select your Facebook export file (.zip or .json)
+- Click "Import Facebook Data" and wait for processing
+- Click "Use This Data for Profile" to auto-populate other tabs
+
+#### Step 3: Upload and Analyze Photos
 - Go to the "Photo Selection" tab
-- Click "Select Photos" to upload your photos (JPG, PNG, etc.)
+- If you imported Facebook data, photos will be automatically loaded
+- Otherwise, click "Select Photos" to upload your photos (JPG, PNG, etc.)
 - Click "Analyze Photos" to get AI analysis and attractiveness scores
 - Review the results and rankings
 
-#### Step 3: Fill Profile Information
+#### Step 4: Fill Profile Information
 - Go to the "Profile Info" tab
-- Fill in your basic information (age, occupation, location)
+- If you imported Facebook data, information will be pre-populated
+- Otherwise, fill in your basic information (age, occupation, location)
 - Add your interests, hobbies, and personality description
 - Describe what you're looking for in a partner
 - Choose your preferred profile style (humorous, romantic, etc.)
 - Click "Save Information"
 
-#### Step 4: Generate Results
+#### Step 5: Generate Results
 - Go to the "Results" tab
 - Click "Generate Final Results"
 - Review your optimized profile with top 5 photos and AI-generated description
@@ -198,12 +209,47 @@ make run
 - **Storage**: 5GB free space for models and data
 - **GPU**: Optional but recommended for faster processing
 
+## Facebook Data Import
+
+### How to Get Your Facebook Data
+
+1. **Go to Facebook Settings**:
+   - Click your profile picture → Settings & Privacy → Settings
+
+2. **Download Your Information**:
+   - Click "Your Facebook Information" → "Download Your Information"
+
+3. **Select Data to Include**:
+   - **Format**: JSON (recommended)
+   - **Media Quality**: High (for better photo analysis)
+   - **Include**: Profile Information, Photos and Videos, Posts, About You, Pages and Interests
+
+4. **Request and Download**:
+   - Click "Create File" and wait for Facebook to prepare your data
+   - Download the ZIP file when ready (usually takes a few hours)
+
+### What Data is Extracted
+
+- **Profile Information**: Name, age, location, relationship status
+- **Photos**: All your uploaded photos with metadata and descriptions
+- **Work & Education**: Current job, education history
+- **Interests**: Liked pages, interests, and hobbies
+- **Posts**: Your posts and status updates for personality analysis
+
+### Privacy and Security
+
+- **Local Processing Only**: Your Facebook data never leaves your computer
+- **No Facebook API**: We don't connect to Facebook - you provide the export file
+- **Temporary Processing**: Data is only used during the session
+- **User Control**: You choose what data to use and can delete it anytime
+
 ## Privacy & Security
 
 - All processing is done locally on your machine
 - No data is sent to external servers
 - Your photos and information remain completely private
 - Models are downloaded once and stored locally
+- Facebook data is processed locally and never transmitted
 
 ## Troubleshooting
 
@@ -248,11 +294,15 @@ dating-profile-optimizer/
 │   │   ├── __init__.py
 │   │   ├── main_window.py      # Main application window
 │   │   ├── model_loader.py     # AI model loading interface
+│   │   ├── facebook_import.py  # Facebook data import interface
 │   │   ├── photo_selector.py   # Photo upload and analysis
 │   │   └── profile_generator.py # Profile information input
 │   ├── models/            # AI model management
 │   │   ├── __init__.py
 │   │   └── model_manager.py    # Core AI model handling
+│   ├── data/              # Data processing
+│   │   ├── __init__.py
+│   │   └── facebook_parser.py  # Facebook data export parser
 │   └── utils/             # Utility functions
 │       ├── __init__.py
 │       └── logger.py           # Logging configuration
@@ -264,6 +314,7 @@ dating-profile-optimizer/
 │   ├── test_main_app.py        # Main application tests
 │   ├── test_integration.py     # Integration tests
 │   ├── test_photo_selector_advanced.py # Advanced PhotoSelector tests
+│   ├── test_facebook_parser.py # Facebook parser tests
 │   └── test_runner.py          # Custom test runner
 ├── logs/                  # Application logs (auto-generated)
 ├── exports/               # Generated results (auto-generated)

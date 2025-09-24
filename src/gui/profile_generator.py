@@ -181,3 +181,31 @@ The more details you provide, the better the AI can create a personalized profil
     def get_user_info(self) -> Dict[str, Any]:
         """Get the saved user information"""
         return self.user_info.copy() if self.user_info else {}
+    
+    def populate_from_facebook_data(self, facebook_data: Dict[str, Any]):
+        """Populate form fields from Facebook data"""
+        try:
+            if facebook_data.get('age'):
+                self.age_var.set(str(facebook_data['age']))
+            
+            if facebook_data.get('occupation') and facebook_data['occupation'] != 'Not specified':
+                self.occupation_var.set(facebook_data['occupation'])
+            
+            if facebook_data.get('location'):
+                self.location_var.set(facebook_data['location'])
+            
+            if facebook_data.get('interests'):
+                self.interests_text.delete(1.0, tk.END)
+                self.interests_text.insert(1.0, facebook_data['interests'])
+            
+            if facebook_data.get('bio'):
+                self.personality_text.delete(1.0, tk.END)
+                self.personality_text.insert(1.0, facebook_data['bio'])
+            
+            # Update status
+            self.status_var.set("✓ Information populated from Facebook data!")
+            self.logger.info("Profile form populated from Facebook data")
+            
+        except Exception as e:
+            self.logger.error(f"Error populating from Facebook data: {str(e)}")
+            self.status_var.set("Error populating from Facebook data")

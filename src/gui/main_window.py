@@ -14,6 +14,7 @@ from PIL import Image, ImageTk
 from .photo_selector import PhotoSelector
 from .profile_generator import ProfileGenerator
 from .model_loader import ModelLoader
+from .facebook_import import FacebookImport
 
 class MainWindow:
     def __init__(self, root, model_manager, logger):
@@ -37,17 +38,20 @@ class MainWindow:
         
         # Create tabs
         self.setup_tab = ttk.Frame(self.notebook)
+        self.facebook_tab = ttk.Frame(self.notebook)
         self.photos_tab = ttk.Frame(self.notebook)
         self.profile_tab = ttk.Frame(self.notebook)
         self.results_tab = ttk.Frame(self.notebook)
         
         self.notebook.add(self.setup_tab, text="Setup & Models")
+        self.notebook.add(self.facebook_tab, text="Facebook Import")
         self.notebook.add(self.photos_tab, text="Photo Selection")
         self.notebook.add(self.profile_tab, text="Profile Info")
         self.notebook.add(self.results_tab, text="Results")
         
         # Setup each tab
         self.setup_setup_tab()
+        self.setup_facebook_tab()
         self.setup_photos_tab()
         self.setup_profile_tab()
         self.setup_results_tab()
@@ -96,6 +100,10 @@ First, load the AI models (this may take a few minutes):"""
         
         # Setup log handler to display in GUI
         self.setup_log_handler()
+    
+    def setup_facebook_tab(self):
+        """Setup the Facebook import tab"""
+        self.facebook_import = FacebookImport(self.facebook_tab, self.model_manager, self.logger)
     
     def setup_photos_tab(self):
         """Setup the photo selection tab"""
@@ -165,6 +173,35 @@ First, load the AI models (this may take a few minutes):"""
         # Add to root logger
         logging.getLogger().addHandler(gui_handler)
     
+    def integrate_facebook_data(self):
+        """Integrate Facebook data across all tabs"""
+        if not self.facebook_import.has_data():
+            return
+        
+        try:
+            facebook_data = self.facebook_import.get_dating_profile_data()
+            facebook_photos = self.facebook_import.get_facebook_photos()
+            
+            # Populate profile generator
+            self.profile_generator.populate_from_facebook_data(facebook_data)
+            
+            # Load photos into photo selector
+            if facebook_photos:
+                self.photo_selector.load_facebook_photos(facebook_photos)
+            
+            self.logger.info("Facebook data integrated across tabs")
+            messagebox.showinfo(
+                "Integration Complete",
+                "Facebook data has been integrated!\n\n"
+                "• Profile information populated in Profile Info tab\n"
+                "• Photos loaded in Photo Selection tab\n"
+                "• Ready for analysis and optimization"
+            )
+            
+        except Exception as e:
+            self.logger.error(f"Error integrating Facebook data: {str(e)}")
+            messagebox.showerror("Integration Error", f"Error integrating Facebook data: {str(e)}")
+    
     def generate_final_results(self):
         """Generate the final optimized dating profile"""
         if not self.model_manager.models_loaded:
@@ -178,6 +215,10 @@ First, load the AI models (this may take a few minutes):"""
                 # Get data from other tabs
                 photos = self.photo_selector.get_analyzed_photos()
                 user_info = self.profile_generator.get_user_info()
+                
+                # If no manual data, try to use Facebook data
+                if not user_info and self.facebook_import.has_data():
+                    user_info = self.facebook_import.get_dating_profile_data()
                 
                 if not photos:
                     messagebox.showerror("Error", "Please upload and analyze photos first!")

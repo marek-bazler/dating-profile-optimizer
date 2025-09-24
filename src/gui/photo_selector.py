@@ -242,3 +242,29 @@ class PhotoSelector:
     def get_analyzed_photos(self) -> List[Dict]:
         """Get the analyzed photos data"""
         return self.analyzed_photos
+    
+    def load_facebook_photos(self, facebook_photos: List[Dict]):
+        """Load photos from Facebook data"""
+        try:
+            # Filter photos that have local paths
+            available_photos = [
+                photo['local_path'] for photo in facebook_photos 
+                if photo.get('local_path') and Path(photo['local_path']).exists()
+            ]
+            
+            if available_photos:
+                self.uploaded_photos = available_photos
+                self.upload_status.set(f"{len(available_photos)} Facebook photos loaded")
+                self.analysis_status.set("Facebook photos loaded - ready for analysis")
+                self.logger.info(f"Loaded {len(available_photos)} Facebook photos")
+                
+                # Clear previous analysis
+                self.analyzed_photos = []
+                self.clear_results_display()
+            else:
+                self.upload_status.set("No accessible Facebook photos found")
+                self.logger.warning("No accessible Facebook photos found")
+                
+        except Exception as e:
+            self.logger.error(f"Error loading Facebook photos: {str(e)}")
+            self.upload_status.set("Error loading Facebook photos")
